@@ -1,0 +1,8 @@
+/target
+/.env
+/curvematch.db
+/curvematch.db-shm
+/curvematch.db-wal
+Cargo.lock
+.DS_Store
+*.swp
