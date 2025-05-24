@@ -1,19 +1,27 @@
+﻿// src/api/client.ts - Fixed version that doesn't interfere with FormData
+
 import axios, { type AxiosInstance, type AxiosError } from 'axios';
 
-// Create axios instance with base configuration
+// Create axios instance with minimal configuration
 export const apiClient: AxiosInstance = axios.create({
   baseURL: import.meta.env.VITE_API_URL || 'http://localhost:3000',
   timeout: 30000,
-  headers: {
-    'Content-Type': 'application/json',
-  },
   withCredentials: true, // Important for cookies
 });
 
-// Request interceptor
+// Request interceptor - only set Content-Type for JSON
 apiClient.interceptors.request.use(
   (config) => {
-    // You can add auth tokens here if needed
+    // Only set Content-Type for JSON data, not FormData
+    if (
+      config.data && 
+      !(config.data instanceof FormData) && 
+      !(config.data instanceof Blob) &&
+      typeof config.data === 'object'
+    ) {
+      config.headers['Content-Type'] = 'application/json';
+    }
+    // For FormData, let axios handle the Content-Type with boundary
     return config;
   },
   (error) => {

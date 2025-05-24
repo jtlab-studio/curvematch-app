@@ -1,3 +1,5 @@
+﻿// src/modules/matching/hooks/useMatching.ts
+
 import { useCallback, useState } from 'react';
 import { useMatchingStore } from '../store/matchingStore';
 import * as matchingApi from '../api/matchingApi';
@@ -24,14 +26,23 @@ export const useMatching = () => {
   const [error, setError] = useState<string | null>(null);
 
   const performMatch = useCallback(async () => {
-    if (!filters.gpxFile || !searchArea) return;
+    // Use the minified GPX file instead of the original
+    if (!filters.minifiedGpxFile || !searchArea) {
+      console.error('Missing required data:', {
+        hasMinifiedGpx: !!filters.minifiedGpxFile,
+        hasSearchArea: !!searchArea,
+      });
+      return;
+    }
 
     setIsMatching(true);
     setError(null);
 
     try {
-      console.log('Starting match with:', {
-        gpxFile: filters.gpxFile.name,
+      console.log('Starting match with minified GPX:', {
+        originalFile: filters.gpxFile?.name,
+        minifiedFile: filters.minifiedGpxFile.name,
+        minifiedSize: (filters.minifiedGpxFile.size / 1024).toFixed(1) + ' KB',
         distanceFlexibility: filters.distanceFlexibility,
         elevationFlexibility: filters.elevationFlexibility,
         safetyMode: filters.safetyMode,
@@ -39,7 +50,7 @@ export const useMatching = () => {
       });
 
       const response = await matchingApi.matchRoutes({
-        gpxFile: filters.gpxFile,
+        gpxFile: filters.minifiedGpxFile, // Use minified file
         distanceFlexibility: filters.distanceFlexibility,
         elevationFlexibility: filters.elevationFlexibility,
         safetyMode: filters.safetyMode,

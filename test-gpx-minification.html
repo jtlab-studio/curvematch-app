@@ -1,0 +1,87 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GPX Minification Test</title>
+    <style>
+        body { font-family: Arial, sans-serif; max-width: 800px; margin: 0 auto; padding: 20px; }
+        .section { margin: 20px 0; padding: 20px; border: 1px solid #ccc; border-radius: 5px; }
+        button { padding: 10px 20px; margin: 5px; cursor: pointer; }
+        .stats { background: #e8f5e9; padding: 10px; border-radius: 5px; margin: 10px 0; }
+        .error { color: red; }
+        .success { color: green; }
+        pre { background: #f5f5f5; padding: 10px; overflow: auto; max-height: 200px; }
+    </style>
+</head>
+<body>
+    <h1>GPX Minification Test</h1>
+    
+    <div class="section">
+        <h2>Test Your GPX File</h2>
+        <input type="file" id="gpxFile" accept=".gpx">
+        <button onclick="testMinification()">Test Minification</button>
+        <div id="result"></div>
+    </div>
+
+    <script>
+        async function testMinification() {
+            const fileInput = document.getElementById('gpxFile');
+            const file = fileInput.files[0];
+            
+            if (!file) {
+                alert('Please select a GPX file');
+                return;
+            }
+            
+            const content = await file.text();
+            const resultDiv = document.getElementById('result');
+            
+            // Count elements
+            const stats = {
+                originalSize: file.size,
+                trackPoints: (content.match(/<trkpt/g) || []).length,
+                timestamps: (content.match(/<time>/g) || []).length,
+                extensions: (content.match(/<extensions>/g) || []).length,
+                heartRate: (content.match(/<(gpxtpx:)?hr>/g) || []).length,
+                cadence: (content.match(/<(gpxtpx:)?cad>/g) || []).length,
+                speed: (content.match(/<(gpxtpx:)?speed>/g) || []).length,
+            };
+            
+            // Simple minification
+            let minified = content;
+            
+            // Remove timestamps
+            minified = minified.replace(/<time>[^<]*<\/time>\s*/g, '');
+            
+            // Remove extensions
+            minified = minified.replace(/<extensions>[\s\S]*?<\/extensions>\s*/g, '');
+            
+            // Remove extra whitespace
+            minified = minified.replace(/>\s+</g, '><');
+            minified = minified.replace(/\s+/g, ' ');
+            
+            const reduction = ((1 - minified.length / content.length) * 100).toFixed(1);
+            
+            resultDiv.innerHTML = `
+                <div class="stats">
+                    <h3>Analysis Results</h3>
+                    <p><strong>Original size:</strong> ${(stats.originalSize / 1024).toFixed(1)} KB</p>
+                    <p><strong>Minified size:</strong> ${(minified.length / 1024).toFixed(1)} KB</p>
+                    <p><strong>Reduction:</strong> ${reduction}%</p>
+                    <hr>
+                    <p><strong>Track points:</strong> ${stats.trackPoints}</p>
+                    <p><strong>Removed:</strong></p>
+                    <ul>
+                        <li>Timestamps: ${stats.timestamps}</li>
+                        <li>Extensions: ${stats.extensions}</li>
+                        <li>Heart rate: ${stats.heartRate}</li>
+                        <li>Cadence: ${stats.cadence}</li>
+                        <li>Speed: ${stats.speed}</li>
+                    </ul>
+                </div>
+            `;
+        }
+    </script>
+</body>
+</html>

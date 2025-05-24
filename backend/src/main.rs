@@ -38,14 +38,33 @@ async fn main() -> anyhow::Result<()> {
     // Run migrations
     sqlx::migrate!("./migrations").run(&pool).await?;
     
-    // Set up CORS with frontend URL from config
+    // Set up CORS with more permissive settings for multipart
     let frontend_url = config.frontend_url.parse::<HeaderValue>()?;
     
     let cors = CorsLayer::new()
-        .allow_methods([Method::GET, Method::POST, Method::PUT, Method::DELETE, Method::PATCH])
+        .allow_methods([
+            Method::GET,
+            Method::POST,
+            Method::PUT,
+            Method::DELETE,
+            Method::PATCH,
+            Method::OPTIONS, // Important for preflight
+        ])
         .allow_origin(frontend_url)
-        .allow_headers([header::CONTENT_TYPE, header::AUTHORIZATION])
-        .allow_credentials(true);
+        .allow_headers([
+            header::CONTENT_TYPE,
+            header::AUTHORIZATION,
+            header::ACCEPT,
+            header::ORIGIN,
+            header::ACCESS_CONTROL_REQUEST_METHOD,
+            header::ACCESS_CONTROL_REQUEST_HEADERS,
+        ])
+        .allow_credentials(true)
+        .expose_headers([
+            header::CONTENT_TYPE,
+            header::CONTENT_LENGTH,
+        ])
+        .max_age(std::time::Duration::from_secs(3600)); // Cache preflight for 1 hour
     
     // Build our application with routes
     let app = Router::new()
