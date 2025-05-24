@@ -39,11 +39,26 @@ export const matchRoutes = async (data: MatchRequest): Promise<MatchResponse> =>
   formData.append('safetyMode', data.safetyMode);
   formData.append('searchArea', JSON.stringify(data.searchArea));
 
-  const response = await apiClient.post(matchEndpoint, formData, {
-    headers: {
-      'Content-Type': 'multipart/form-data',
-    },
-  });
+  console.log('Sending match request with form data');
+  
+  try {
+    const response = await apiClient.post(matchEndpoint, formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+      // Add timeout to prevent hanging
+      timeout: 30000,
+    });
 
-  return response.data;
+    return response.data;
+  } catch (error: any) {
+    console.error('Match API error:', error);
+    if (error.code === 'ECONNABORTED') {
+      throw new Error('Request timed out. Please try again.');
+    }
+    if (error.response?.data?.error) {
+      throw new Error(error.response.data.error);
+    }
+    throw new Error('Failed to match routes. Please check your connection.');
+  }
 };

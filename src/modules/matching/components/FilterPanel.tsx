@@ -6,7 +6,7 @@ import GlassPanel from '../../common/components/GlassPanel';
 import Button from '../../common/components/Button';
 
 const FilterPanel: React.FC = () => {
-  const { filters, updateFilters, performMatch } = useMatching();
+  const { filters, updateFilters, performMatch, isMatching } = useMatching();
   const { searchArea } = useMatchingStore();
   const [gpxFile, setGpxFile] = useState<File | null>(null);
 
@@ -106,17 +106,26 @@ const FilterPanel: React.FC = () => {
         />
       </div>
 
-      {/* Safety Mode */}
+      {/* Safety Mode - Fixed styling */}
       <div>
         <label className="block text-sm font-medium mb-2">Safety Mode</label>
         <select
           value={filters.safetyMode}
           onChange={(e) => updateFilters({ safetyMode: e.target.value })}
-          className="w-full px-3 py-2 bg-white/10 backdrop-blur-md rounded-lg border border-white/20"
+          className="w-full px-3 py-2 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 
+                     border border-gray-300 dark:border-gray-600 rounded-lg 
+                     focus:outline-none focus:ring-2 focus:ring-accent-1 focus:border-transparent
+                     cursor-pointer"
         >
-          <option value="Strict">Strict (foot/trail only)</option>
-          <option value="Moderate">Moderate (incl. residential)</option>
-          <option value="None">None</option>
+          <option value="Strict" className="bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100">
+            Strict (foot/trail only)
+          </option>
+          <option value="Moderate" className="bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100">
+            Moderate (incl. residential)
+          </option>
+          <option value="None" className="bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100">
+            None
+          </option>
         </select>
       </div>
 
@@ -124,23 +133,31 @@ const FilterPanel: React.FC = () => {
       <div className="space-y-2">
         <Button
           onClick={handleSubmit}
-          disabled={!isReady}
+          disabled={!isReady || isMatching}
+          isLoading={isMatching}
           className="w-full"
         >
-          Find Routes
+          {isMatching ? 'Finding Routes...' : 'Find Routes'}
         </Button>
         <Button
           onClick={resetFilters}
           variant="secondary"
           className="w-full"
+          disabled={isMatching}
         >
           Reset Filters
         </Button>
       </div>
 
-      {!searchArea && (
+      {!gpxFile && (
         <p className="text-sm text-yellow-600">
-          Draw a search area on the map to enable matching
+          Upload a GPX file to start
+        </p>
+      )}
+      
+      {gpxFile && !searchArea && (
+        <p className="text-sm text-yellow-600">
+          Draw a search area on the map
         </p>
       )}
     </GlassPanel>

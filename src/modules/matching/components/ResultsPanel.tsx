@@ -1,10 +1,11 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useMatching } from '../hooks/useMatching';
 import RouteInspector from './RouteInspector';
 import SaveModal from '../../library/components/SaveModal';
 import LoadingSpinner from '../../common/components/LoadingSpinner';
 import GlassPanel from '../../common/components/GlassPanel';
 import Button from '../../common/components/Button';
+import { CheckCircleIcon } from '@heroicons/react/24/solid';
 
 interface RouteMatch {
   id: string;
@@ -17,12 +18,48 @@ interface RouteMatch {
   elevationProfile: number[];
 }
 
+interface LoadingStage {
+  id: string;
+  label: string;
+  completed: boolean;
+}
+
 const ResultsPanel: React.FC = () => {
-  const { results, isMatching } = useMatching();
+  const { results, isMatching, error } = useMatching();
   const [selectedRoute, setSelectedRoute] = useState<RouteMatch | null>(null);
   const [routeToSave, setRouteToSave] = useState<RouteMatch | null>(null);
   const [page, setPage] = useState(1);
+  const [loadingStages, setLoadingStages] = useState<LoadingStage[]>([]);
   const itemsPerPage = 10;
+
+  useEffect(() => {
+    if (isMatching) {
+      // Initialize loading stages
+      const stages: LoadingStage[] = [
+        { id: 'upload', label: 'Uploading GPX file', completed: false },
+        { id: 'parse', label: 'Parsing route data', completed: false },
+        { id: 'analyze', label: 'Analyzing elevation profile', completed: false },
+        { id: 'search', label: 'Searching for similar routes', completed: false },
+        { id: 'calculate', label: 'Calculating match scores', completed: false },
+      ];
+      setLoadingStages(stages);
+
+      // Simulate stage progression
+      const timers: NodeJS.Timeout[] = [];
+      stages.forEach((stage, index) => {
+        const timer = setTimeout(() => {
+          setLoadingStages(prev => 
+            prev.map((s, i) => i <= index ? { ...s, completed: true } : s)
+          );
+        }, (index + 1) * 800);
+        timers.push(timer);
+      });
+
+      return () => {
+        timers.forEach(timer => clearTimeout(timer));
+      };
+    }
+  }, [isMatching]);
 
   const handleRouteSelect = (route: RouteMatch) => {
     setSelectedRoute(route);
@@ -37,10 +74,43 @@ const ResultsPanel: React.FC = () => {
 
   if (isMatching) {
     return (
-      <GlassPanel className="w-full h-full flex items-center justify-center">
-        <div className="text-center">
-          <LoadingSpinner size="large" />
-          <p className="mt-4 text-gray-600">Finding matching routes...</p>
+      <GlassPanel className="w-full h-full flex items-center justify-center p-6">
+        <div className="w-full max-w-sm">
+          <div className="text-center mb-6">
+            <LoadingSpinner size="large" />
+            <h3 className="mt-4 text-lg font-semibold">Finding matching routes...</h3>
+          </div>
+          
+          <div className="space-y-3">
+            {loadingStages.map((stage) => (
+              <div
+                key={stage.id}
+                className={`flex items-center gap-3 transition-all duration-300 ${
+                  stage.completed ? 'opacity-100' : 'opacity-50'
+                }`}
+              >
+                {stage.completed ? (
+                  <CheckCircleIcon className="w-5 h-5 text-green-500 animate-pulse" />
+                ) : (
+                  <div className="w-5 h-5 rounded-full border-2 border-gray-400" />
+                )}
+                <span className={`text-sm ${stage.completed ? 'font-medium' : ''}`}>
+                  {stage.label}
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+      </GlassPanel>
+    );
+  }
+
+  if (error) {
+    return (
+      <GlassPanel className="w-full h-full p-6">
+        <div className="text-center py-8">
+          <p className="text-red-600 mb-4">Error: {error}</p>
+          <Button onClick={() => window.location.reload()}>Retry</Button>
         </div>
       </GlassPanel>
     );
@@ -50,7 +120,7 @@ const ResultsPanel: React.FC = () => {
     <div className="w-full h-full flex flex-col">
       <GlassPanel className="flex-1 p-6 overflow-y-auto">
         <h3 className="text-lg font-semibold mb-4">
-          Results ({results.length} routes found)
+          Results {results.length > 0 && `(${results.length} routes found)`}
         </h3>
 
         {results.length === 0 ? (
