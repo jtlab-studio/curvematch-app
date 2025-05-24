@@ -72,3 +72,19 @@
 .chartjs-render-monitor {
   @apply rounded-lg;
 }
+
+/* Area tooltip styling */
+.area-tooltip {
+  background: rgba(255, 152, 0, 0.9) !important;
+  border: none !important;
+  color: white !important;
+  font-weight: bold !important;
+  font-family: 'Quicksand', system-ui, sans-serif !important;
+  padding: 4px 8px !important;
+  border-radius: 4px !important;
+}
+
+/* Drawing cursor */
+.leaflet-container.leaflet-crosshair-cursor {
+  cursor: crosshair !important;
+}

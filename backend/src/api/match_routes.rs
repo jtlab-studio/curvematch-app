@@ -49,28 +49,41 @@ async fn match_routes(
     let mut _safety_mode = "Moderate".to_string();
     let mut _search_area: Option<serde_json::Value> = None;
     
-    // Parse multipart form data
-    while let Some(field) = multipart.next_field().await.unwrap() {
-        let name = field.name().unwrap().to_string();
+    // Parse multipart form data with proper error handling
+    while let Some(field) = multipart.next_field().await
+        .map_err(|e| AppError::BadRequest(format!("Failed to read multipart field: {}", e)))? 
+    {
+        let name = field.name().unwrap_or("").to_string();
         
         match name.as_str() {
             "gpxFile" => {
-                gpx_data = field.bytes().await.unwrap().to_vec();
+                gpx_data = field.bytes().await
+                    .map_err(|e| AppError::BadRequest(format!("Failed to read GPX file: {}", e)))?
+                    .to_vec();
             }
             "distanceFlexibility" => {
-                _distance_flexibility = field.text().await.unwrap().parse().unwrap_or(10.0);
+                let text = field.text().await
+                    .map_err(|e| AppError::BadRequest(format!("Failed to read distance flexibility: {}", e)))?;
+                _distance_flexibility = text.parse().unwrap_or(10.0);
             }
             "elevationFlexibility" => {
-                _elevation_flexibility = field.text().await.unwrap().parse().unwrap_or(10.0);
+                let text = field.text().await
+                    .map_err(|e| AppError::BadRequest(format!("Failed to read elevation flexibility: {}", e)))?;
+                _elevation_flexibility = text.parse().unwrap_or(10.0);
             }
             "safetyMode" => {
-                _safety_mode = field.text().await.unwrap();
+                _safety_mode = field.text().await
+                    .map_err(|e| AppError::BadRequest(format!("Failed to read safety mode: {}", e)))?;
             }
             "searchArea" => {
-                let json_str = field.text().await.unwrap();
+                let json_str = field.text().await
+                    .map_err(|e| AppError::BadRequest(format!("Failed to read search area: {}", e)))?;
                 _search_area = serde_json::from_str(&json_str).ok();
             }
-            _ => {}
+            _ => {
+                // Skip unknown fields
+                let _ = field.bytes().await;
+            }
         }
     }
     
@@ -80,7 +93,7 @@ async fn match_routes(
     
     // Parse GPX file
     let gpx_string = String::from_utf8(gpx_data)
-        .map_err(|_| AppError::BadRequest("Invalid GPX file".to_string()))?;
+        .map_err(|_| AppError::BadRequest("Invalid GPX file encoding".to_string()))?;
     
     let _gpx = parse_gpx(&gpx_string)?;
     

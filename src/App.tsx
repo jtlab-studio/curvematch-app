@@ -1,5 +1,5 @@
 import React from 'react';
-import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
+import { createBrowserRouter, RouterProvider } from 'react-router-dom';
 import { useTheme } from './modules/common/hooks/useTheme';
 import AuthGuard from './modules/auth/components/AuthGuard';
 import Navbar from './components/layout/Navbar';
@@ -13,50 +13,82 @@ import Match from './pages/Match';
 import Library from './pages/Library';
 import LibraryDetail from './pages/LibraryDetail';
 
+// Create router with future flags
+const router = createBrowserRouter([
+  {
+    path: '/',
+    element: (
+      <>
+        <Navbar />
+        <Landing />
+        <Footer />
+      </>
+    ),
+  },
+  {
+    path: '/login',
+    element: (
+      <>
+        <Navbar />
+        <Login />
+        <Footer />
+      </>
+    ),
+  },
+  {
+    path: '/signup',
+    element: (
+      <>
+        <Navbar />
+        <Signup />
+        <Footer />
+      </>
+    ),
+  },
+  {
+    path: '/match',
+    element: (
+      <AuthGuard>
+        <Navbar />
+        <Match />
+        <Footer />
+      </AuthGuard>
+    ),
+  },
+  {
+    path: '/library',
+    element: (
+      <AuthGuard>
+        <Navbar />
+        <Library />
+        <Footer />
+      </AuthGuard>
+    ),
+  },
+  {
+    path: '/library/:id',
+    element: (
+      <AuthGuard>
+        <Navbar />
+        <LibraryDetail />
+        <Footer />
+      </AuthGuard>
+    ),
+  },
+], {
+  future: {
+    v7_startTransition: true,
+    v7_relativeSplatPath: true,
+  },
+});
+
 function App() {
   const { isDark } = useTheme();
 
   return (
-    <Router>
-      <div className={`min-h-screen flex flex-col ${isDark ? 'dark' : ''}`}>
-        <Navbar />
-        <main className="flex-1">
-          <Routes>
-            {/* Public Routes */}
-            <Route path="/" element={<Landing />} />
-            <Route path="/login" element={<Login />} />
-            <Route path="/signup" element={<Signup />} />
-            
-            {/* Protected Routes */}
-            <Route
-              path="/match"
-              element={
-                <AuthGuard>
-                  <Match />
-                </AuthGuard>
-              }
-            />
-            <Route
-              path="/library"
-              element={
-                <AuthGuard>
-                  <Library />
-                </AuthGuard>
-              }
-            />
-            <Route
-              path="/library/:id"
-              element={
-                <AuthGuard>
-                  <LibraryDetail />
-                </AuthGuard>
-              }
-            />
-          </Routes>
-        </main>
-        <Footer />
-      </div>
-    </Router>
+    <div className={`min-h-screen flex flex-col ${isDark ? 'dark' : ''}`}>
+      <RouterProvider router={router} />
+    </div>
   );
 }
 
