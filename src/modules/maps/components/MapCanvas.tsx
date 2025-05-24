@@ -1,18 +1,17 @@
 import React, { useEffect, useState } from 'react';
-import { MapContainer, TileLayer, useMapEvents } from 'react-leaflet';
+import { MapContainer, TileLayer, useMapEvents, Rectangle } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import DrawControl from './DrawControl';
 import RouteOverlay from './RouteOverlay';
-import { useMap } from '../hooks/useMap';
 import { useMatchingStore } from '../../matching/store/matchingStore';
 
 // Fix Leaflet icon issue
 delete (L.Icon.Default.prototype as any)._getIconUrl;
 L.Icon.Default.mergeOptions({
-  iconRetinaUrl: '/leaflet/marker-icon-2x.png',
-  iconUrl: '/leaflet/marker-icon.png',
-  shadowUrl: '/leaflet/marker-shadow.png',
+  iconRetinaUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png',
+  iconUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png',
+  shadowUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png',
 });
 
 interface MapCanvasProps {
@@ -41,9 +40,7 @@ const MapCanvas: React.FC<MapCanvasProps> = ({
   onAreaDrawn,
 }) => {
   const [center, setCenter] = useState<[number, number]>([52.5200, 13.4050]); // Berlin
-  const [zoom, setZoom] = useState(11);
   const [isDrawEnabled, setIsDrawEnabled] = useState(false);
-  const { locateUser } = useMap();
   const { filters, setSearchArea } = useMatchingStore();
 
   const handleLocationFound = (e: L.LocationEvent) => {
@@ -70,7 +67,7 @@ const MapCanvas: React.FC<MapCanvasProps> = ({
   return (
     <MapContainer
       center={center}
-      zoom={zoom}
+      zoom={11}
       className="w-full h-full"
       style={{ minHeight: '400px' }}
     >
@@ -86,7 +83,7 @@ const MapCanvas: React.FC<MapCanvasProps> = ({
       )}
       
       {searchArea && (
-        <L.Rectangle
+        <Rectangle
           bounds={[
             [searchArea.south, searchArea.west],
             [searchArea.north, searchArea.east],

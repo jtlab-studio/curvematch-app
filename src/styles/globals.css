@@ -1,0 +1,74 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Custom base styles */
+@layer base {
+  :root {
+    /* Light mode colors */
+    --color-primary-text: #121212;
+    --color-secondary-text: #14181b;
+    --color-primary-bg: #f1f4f8;
+    --color-secondary-bg: #ffffff;
+  }
+
+  .dark {
+    /* Dark mode colors */
+    --color-primary-text: #f1f4f8;
+    --color-secondary-text: #ffffff;
+    --color-primary-bg: #121212;
+    --color-secondary-bg: #14181b;
+  }
+
+  body {
+    @apply bg-primary-bg text-primary-text;
+    font-family: 'Quicksand', system-ui, sans-serif;
+  }
+}
+
+/* Glassmorphism utility classes */
+@layer components {
+  .glass {
+    @apply backdrop-blur-md bg-white/20 dark:bg-[#1e1e1e]/40;
+    @apply border border-white/20 rounded-2xl shadow-lg;
+  }
+
+  .glass-light {
+    @apply backdrop-blur-md bg-white/30 dark:bg-white/10;
+    @apply border border-white/20 rounded-2xl shadow-lg;
+  }
+
+  .glass-dark {
+    @apply backdrop-blur-md bg-black/20 dark:bg-black/40;
+    @apply border border-white/20 rounded-2xl shadow-lg;
+  }
+}
+
+/* Custom utilities */
+@layer utilities {
+  .text-primary-text {
+    color: var(--color-primary-text);
+  }
+
+  .text-secondary-text {
+    color: var(--color-secondary-text);
+  }
+
+  .bg-primary-bg {
+    background-color: var(--color-primary-bg);
+  }
+
+  .bg-secondary-bg {
+    background-color: var(--color-secondary-bg);
+  }
+}
+
+/* Leaflet fixes */
+.leaflet-container {
+  font-family: 'Quicksand', system-ui, sans-serif;
+}
+
+/* Chart.js fixes */
+.chartjs-render-monitor {
+  @apply rounded-lg;
+}

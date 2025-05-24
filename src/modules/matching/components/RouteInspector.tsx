@@ -9,8 +9,8 @@ import {
   Title,
   Tooltip,
   Legend,
-  ChartData,
-  ChartOptions,
+  type ChartData,
+  type ChartOptions,
 } from 'chart.js';
 import GlassPanel from '../../common/components/GlassPanel';
 import Button from '../../common/components/Button';

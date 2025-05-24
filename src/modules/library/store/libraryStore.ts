@@ -43,14 +43,14 @@ export const useLibraryStore = create<LibraryState>()(
       }),
     updateRoute: (id, updates) =>
       set((state) => {
-        const index = state.routes.findIndex((r) => r.id === id);
+        const index = state.routes.findIndex((r: SavedRoute) => r.id === id);
         if (index !== -1) {
           Object.assign(state.routes[index], updates);
         }
       }),
     removeRoute: (id) =>
       set((state) => {
-        state.routes = state.routes.filter((r) => r.id !== id);
+        state.routes = state.routes.filter((r: SavedRoute) => r.id !== id);
       }),
     setSelectedRoute: (route) =>
       set((state) => {
