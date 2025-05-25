@@ -1,6 +1,7 @@
-﻿// backend/src/utils/gpx_minifier.rs - Reduce GPX to essential data only
+// backend/src/utils/gpx_minifier.rs - Reduce GPX to essential data only
 
-use gpx::{Gpx, Track, TrackSegment, Waypoint, GpxPoint};
+use gpx::{Gpx, Track, TrackSegment, Waypoint};
+use geo::Point;
 use std::io::Cursor;
 use crate::error::AppError;
 
@@ -47,30 +48,19 @@ pub fn minify_gpx(gpx_content: &str) -> Result<String, AppError> {
             
             // Keep only essential waypoint data
             for point in &segment.points {
-                let minimal_point = Waypoint {
-                    // Create a new GpxPoint from coordinates
-                    point: GpxPoint::new((point.point().x(), point.point().y())),
-                    elevation: point.elevation, // Keep elevation
-                    time: None, // Remove timestamp
-                    name: None,
-                    comment: None,
-                    description: None,
-                    source: None,
-                    links: vec![],
-                    symbol: None,
-                    type_: None,
-                    // Keep only essential fields
-                    geoidheight: None,
-                    fix: None,
-                    sat: None,
-                    hdop: None,
-                    vdop: None,
-                    pdop: None,
-                    dgps_age: None,
-                    dgpsid: None,
-                    // The gpx crate doesn't have extensions field on Waypoint
-                    speed: None,
-                };
+                // Get the coordinates from the original point
+                let coord = point.point();
+                
+                // Create a new geo Point with the coordinates
+                let geo_point = Point::new(coord.x(), coord.y());
+                
+                // Create a minimal waypoint with the geo Point
+                let mut minimal_point = Waypoint::new(geo_point);
+                
+                // Keep elevation if available
+                minimal_point.elevation = point.elevation;
+                // All other fields remain None/default
+                
                 minimal_segment.points.push(minimal_point);
             }
             
