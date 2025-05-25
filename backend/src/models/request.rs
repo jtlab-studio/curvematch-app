@@ -5,7 +5,18 @@ pub struct SaveRouteRequest {
     pub name: String,
     pub tag: String,
     pub area: SearchArea,
-    // Additional route data fields would go here
+    pub distance: f64,
+    #[serde(rename = "elevationGain")]
+    pub elevation_gain: f64,
+    #[serde(rename = "gainPerKm")]
+    pub gain_per_km: f64,
+    #[serde(rename = "curveScore")]
+    pub curve_score: f64,
+    #[serde(rename = "matchPercentage")]
+    pub match_percentage: f64,
+    pub geometry: serde_json::Value,
+    #[serde(rename = "elevationProfile")]
+    pub elevation_profile: Vec<f64>,
 }
 
 #[derive(Debug, Deserialize, Serialize)]

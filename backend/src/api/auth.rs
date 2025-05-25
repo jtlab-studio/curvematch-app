@@ -86,6 +86,11 @@ async fn signup(
         return Err(AppError::BadRequest("Email already exists".to_string()));
     }
     
+    // Log user interest if provided
+    if let Some(ref interest) = payload.interest {
+        tracing::info!("New user signup with interest: {}", interest);
+    }
+    
     // Hash password
     let (password_salt, password_hash) = hash_password(&payload.password)?;
     

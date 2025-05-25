@@ -1,4 +1,4 @@
-﻿use axum::{
+use axum::{
     extract::{DefaultBodyLimit, Multipart, State},
     response::IntoResponse,
     routing::post,
@@ -12,6 +12,8 @@ use crate::{
     error::AppError,
     utils::gpx_parser::parse_gpx,
     utils::gpx_minifier::minify_gpx,
+    matching::engine::{MatchingEngine, calculate_distance},
+    utils::elevation::calculate_elevation_stats,
 };
 
 #[derive(Debug, Serialize)]
@@ -35,87 +37,83 @@ pub struct RouteMatch {
 #[derive(Debug, Serialize)]
 pub struct MatchResponse {
     pub matches: Vec<RouteMatch>,
+    #[serde(rename = "inputRoute")]
+    pub input_route: InputRouteInfo,
+}
+
+#[derive(Debug, Serialize)]
+pub struct InputRouteInfo {
+    pub name: String,
+    pub distance: f64,
+    #[serde(rename = "elevationGain")]
+    pub elevation_gain: f64,
+    pub geometry: serde_json::Value,
+    #[serde(rename = "elevationProfile")]
+    pub elevation_profile: Vec<f64>,
 }
 
 pub fn routes() -> Router<SqlitePool> {
     Router::new()
         .route("/match", post(match_routes))
-        // Add body limit of 50MB for the match endpoint
         .layer(
             ServiceBuilder::new()
-                .layer(DefaultBodyLimit::max(50 * 1024 * 1024)) // 50MB
+                .layer(DefaultBodyLimit::max(50 * 1024 * 1024))
                 .layer(RequestBodyLimitLayer::new(50 * 1024 * 1024))
         )
 }
 
 async fn match_routes(
-    State(_pool): State<SqlitePool>,
+    State(pool): State<SqlitePool>,
     mut multipart: Multipart,
 ) -> Result<impl IntoResponse, AppError> {
     tracing::info!("Match endpoint called");
     
     let mut gpx_data = Vec::new();
-    let mut _distance_flexibility = 10.0;
-    let mut _elevation_flexibility = 10.0;
+    let mut distance_flexibility = 10.0;
+    let mut elevation_flexibility = 10.0;
     let mut _safety_mode = "Moderate".to_string();
-    let mut _search_area: Option<serde_json::Value> = None;
-    let mut fields_received = Vec::new();
+    let mut search_area: Option<serde_json::Value> = None;
+    let mut original_filename = String::new();
     
     // Parse multipart form data
     while let Some(field) = multipart.next_field().await
-        .map_err(|e| {
-            tracing::error!("Failed to get next multipart field: {}", e);
-            AppError::BadRequest(format!("Failed to read multipart data: {}", e))
-        })? 
+        .map_err(|e| AppError::BadRequest(format!("Failed to read multipart data: {}", e)))? 
     {
         let name = field.name().unwrap_or("unknown").to_string();
-        let filename = field.file_name().map(|s| s.to_string());
-        
-        tracing::info!("Processing field: name={}, filename={:?}", name, filename);
-        fields_received.push(name.clone());
         
         match name.as_str() {
             "gpxFile" => {
-                // Read the file data in chunks
-                let mut file_data = Vec::new();
-                let mut chunk_count = 0;
-                
-                let mut field = field;
-                while let Some(chunk) = field.chunk().await
-                    .map_err(|e| {
-                        tracing::error!("Failed to read chunk {}: {}", chunk_count, e);
-                        AppError::BadRequest(format!("Failed to read file data: {}", e))
-                    })?
-                {
-                    chunk_count += 1;
-                    file_data.extend_from_slice(&chunk);
+                if let Some(filename) = field.file_name() {
+                    original_filename = filename.to_string();
                 }
                 
+                let mut file_data = Vec::new();
+                let mut field = field;
+                while let Some(chunk) = field.chunk().await
+                    .map_err(|e| AppError::BadRequest(format!("Failed to read file data: {}", e)))?
+                {
+                    file_data.extend_from_slice(&chunk);
+                }
                 gpx_data = file_data;
-                tracing::info!("GPX file received: {} bytes in {} chunks", gpx_data.len(), chunk_count);
+                tracing::info!("GPX file received: {} bytes, filename: {}", gpx_data.len(), original_filename);
             }
             "distanceFlexibility" => {
-                let text = field.text().await
-                    .map_err(|e| AppError::BadRequest(format!("Failed to read distance flexibility: {}", e)))?;
-                _distance_flexibility = text.parse().unwrap_or(10.0);
+                let text = field.text().await.unwrap_or_default();
+                distance_flexibility = text.parse().unwrap_or(10.0);
             }
             "elevationFlexibility" => {
-                let text = field.text().await
-                    .map_err(|e| AppError::BadRequest(format!("Failed to read elevation flexibility: {}", e)))?;
-                _elevation_flexibility = text.parse().unwrap_or(10.0);
+                let text = field.text().await.unwrap_or_default();
+                elevation_flexibility = text.parse().unwrap_or(10.0);
             }
             "safetyMode" => {
-                _safety_mode = field.text().await
-                    .map_err(|e| AppError::BadRequest(format!("Failed to read safety mode: {}", e)))?;
+                _safety_mode = field.text().await.unwrap_or_else(|_| "Moderate".to_string());
             }
             "searchArea" => {
-                let json_str = field.text().await
-                    .map_err(|e| AppError::BadRequest(format!("Failed to read search area: {}", e)))?;
-                _search_area = serde_json::from_str(&json_str).ok();
+                let json_str = field.text().await.unwrap_or_default();
+                search_area = serde_json::from_str(&json_str).ok();
             }
             _ => {
                 let _ = field.text().await;
-                tracing::warn!("Unknown field: {}", name);
             }
         }
     }
@@ -124,72 +122,98 @@ async fn match_routes(
         return Err(AppError::BadRequest("No GPX file provided".to_string()));
     }
     
+    let search_bounds = search_area
+        .as_ref()
+        .and_then(|area| {
+            let west = area.get("west")?.as_f64()?;
+            let south = area.get("south")?.as_f64()?;
+            let east = area.get("east")?.as_f64()?;
+            let north = area.get("north")?.as_f64()?;
+            Some((west, south, east, north))
+        })
+        .ok_or_else(|| AppError::BadRequest("Invalid search area".to_string()))?;
+    
     // Convert to string
     let gpx_string = String::from_utf8(gpx_data)
-        .map_err(|e| {
-            tracing::error!("Invalid GPX file encoding: {}", e);
-            AppError::BadRequest("Invalid GPX file encoding".to_string())
-        })?;
+        .map_err(|_| AppError::BadRequest("Invalid GPX file encoding".to_string()))?;
     
-    tracing::info!("Original GPX size: {} bytes", gpx_string.len());
-    
-    // Note: The frontend already minified the GPX, but we can double-check here
-    let gpx_to_parse = if gpx_string.contains("<extensions>") || gpx_string.contains("<time>") {
-        // If it contains extensions or timestamps, minify it
-        match minify_gpx(&gpx_string) {
-            Ok(minimal) => {
-                tracing::info!(
-                    "Backend minified GPX: {} bytes -> {} bytes ({:.1}% reduction)",
-                    gpx_string.len(),
-                    minimal.len(),
-                    (1.0 - minimal.len() as f64 / gpx_string.len() as f64) * 100.0
-                );
-                minimal
-            }
-            Err(e) => {
-                tracing::warn!("Failed to minify GPX on backend, using original: {}", e);
-                gpx_string
-            }
+    // Try to minify the GPX
+    let gpx_to_parse = match minify_gpx(&gpx_string) {
+        Ok(minified) => {
+            tracing::info!("Successfully minified GPX");
+            minified
         }
-    } else {
-        tracing::info!("GPX appears to be already minified");
-        gpx_string
+        Err(e) => {
+            tracing::warn!("Failed to minify GPX: {}, using original", e);
+            gpx_string
+        }
     };
     
     // Parse the GPX
     let parsed_gpx = parse_gpx(&gpx_to_parse)?;
     
+    // Use the parsed GPX name or fallback to filename
+    let route_name = parsed_gpx.name.clone()
+        .unwrap_or_else(|| original_filename.replace(".gpx", ""));
+    
+    // Calculate route statistics
+    let route_distance = calculate_distance(&parsed_gpx.geometry);
+    let elevation_stats = calculate_elevation_stats(&parsed_gpx.elevation_profile);
+    
     tracing::info!(
-        "Parsed GPX: {} points, {} elevations",
-        parsed_gpx.geometry.0.len(),
-        parsed_gpx.elevation_profile.len()
+        "Parsed GPX: name={}, distance={:.0}m, elevation_gain={:.0}m, points={}",
+        route_name, route_distance, elevation_stats.total_gain, parsed_gpx.geometry.0.len()
     );
     
-    // TODO: Implement actual matching logic
-    // For now, return mock data
-    let matches = vec![
-        RouteMatch {
-            id: "1".to_string(),
-            name: parsed_gpx.name.unwrap_or_else(|| "Matched Trail".to_string()),
-            distance: 5000.0,
-            elevation_gain: 250.0,
-            gain_per_km: 50.0,
-            match_percentage: 85.0,
-            curve_score: 0.92,
+    // Create matching engine with database connection
+    let engine = MatchingEngine::from_database(&pool).await
+        .map_err(|e| AppError::MatchingError(format!("Failed to initialize matching engine: {}", e)))?;
+    
+    let match_results = engine.find_matches(
+        &parsed_gpx.geometry,
+        &parsed_gpx.elevation_profile,
+        search_bounds,
+        distance_flexibility,
+        elevation_flexibility,
+    )?;
+    
+    // Convert matching results to API response format
+    let matches: Vec<RouteMatch> = match_results
+        .into_iter()
+        .take(20)
+        .map(|result| RouteMatch {
+            id: result.id,
+            name: result.name,
+            distance: result.distance,
+            elevation_gain: result.elevation_gain,
+            gain_per_km: result.gain_per_km,
+            match_percentage: result.match_percentage,
+            curve_score: result.curve_score,
             geometry: serde_json::json!({
                 "type": "LineString",
-                "coordinates": parsed_gpx.geometry.0.iter()
-                    .take(10) // Just first 10 points for the mock
+                "coordinates": result.geometry.0.iter()
                     .map(|coord| [coord.x, coord.y])
                     .collect::<Vec<_>>()
             }),
-            elevation_profile: parsed_gpx.elevation_profile.iter()
-                .take(10)
-                .cloned()
-                .collect(),
-        },
-    ];
+            elevation_profile: result.elevation_profile,
+        })
+        .collect();
+    
+    // Create input route info for frontend display
+    let input_route = InputRouteInfo {
+        name: route_name,
+        distance: route_distance,
+        elevation_gain: elevation_stats.total_gain,
+        geometry: serde_json::json!({
+            "type": "LineString",
+            "coordinates": parsed_gpx.geometry.0.iter()
+                .take(1000)
+                .map(|coord| [coord.x, coord.y])
+                .collect::<Vec<_>>()
+        }),
+        elevation_profile: parsed_gpx.elevation_profile.clone(),
+    };
     
     tracing::info!("Returning {} matches", matches.len());
-    Ok(Json(MatchResponse { matches }))
+    Ok(Json(MatchResponse { matches, input_route }))
 }

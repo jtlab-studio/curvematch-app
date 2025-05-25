@@ -5,11 +5,12 @@ use axum::{
     routing::{get, delete, patch},
     Json, Router,
 };
-use serde::Serialize;
+use serde::{Serialize, Deserialize};
 use sqlx::SqlitePool;
 use crate::{
-    db::queries::routes::{get_user_routes, get_route_by_id, delete_route_by_id},
+    db::queries::routes::{get_user_routes, get_route_by_id, delete_route_by_id, update_route_name},
     error::AppError,
+    models::request::UpdateRouteRequest,
 };
 
 #[derive(Debug, Serialize)]
@@ -69,11 +70,15 @@ async fn delete_route(
 }
 
 async fn update_route(
-    State(_pool): State<SqlitePool>,
+    State(pool): State<SqlitePool>,
     Path(id): Path<i64>,
-    Json(_payload): Json<serde_json::Value>,
+    Json(payload): Json<UpdateRouteRequest>,
 ) -> Result<impl IntoResponse, AppError> {
-    // TODO: Implement route update logic
+    // Use the update_route_name function if name is provided
+    if let Some(ref new_name) = payload.name {
+        update_route_name(&pool, id, new_name).await?;
+    }
+    
     Ok(Json(serde_json::json!({
         "id": id,
         "message": "Route updated successfully"

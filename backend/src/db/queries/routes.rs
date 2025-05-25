@@ -113,3 +113,19 @@ pub async fn update_route_name(
     
     Ok(())
 }
+
+
+pub async fn get_all_routes(
+    pool: &SqlitePool,
+) -> Result<Vec<DbSavedRoute>, sqlx::Error> {
+    let routes = sqlx::query_as::<_, DbSavedRoute>(
+        r#"
+        SELECT * FROM saved_routes
+        ORDER BY saved_at DESC
+        "#,
+    )
+    .fetch_all(pool)
+    .await?;
+    
+    Ok(routes)
+}

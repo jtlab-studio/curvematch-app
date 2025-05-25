@@ -2,7 +2,6 @@ use axum::{
     Router,
     http::{Method, header, HeaderValue},
 };
-use sqlx::sqlite::SqlitePool;
 use std::net::SocketAddr;
 use tower_http::cors::CorsLayer;
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
@@ -17,6 +16,7 @@ mod models;
 mod utils;
 
 use crate::config::Config;
+use crate::db::create_pool;
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
@@ -32,8 +32,8 @@ async fn main() -> anyhow::Result<()> {
     // Load configuration
     let config = Config::from_env()?;
     
-    // Connect to database
-    let pool = SqlitePool::connect(&config.database_url).await?;
+    // Connect to database using create_pool function
+    let pool = create_pool(&config.database_url).await?;
     
     // Run migrations
     sqlx::migrate!("./migrations").run(&pool).await?;
@@ -48,7 +48,7 @@ async fn main() -> anyhow::Result<()> {
             Method::PUT,
             Method::DELETE,
             Method::PATCH,
-            Method::OPTIONS, // Important for preflight
+            Method::OPTIONS,
         ])
         .allow_origin(frontend_url)
         .allow_headers([
@@ -64,7 +64,7 @@ async fn main() -> anyhow::Result<()> {
             header::CONTENT_TYPE,
             header::CONTENT_LENGTH,
         ])
-        .max_age(std::time::Duration::from_secs(3600)); // Cache preflight for 1 hour
+        .max_age(std::time::Duration::from_secs(3600));
     
     // Build our application with routes
     let app = Router::new()

@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useMatching } from '../hooks/useMatching';
+import { useMatchingStore } from '../store/matchingStore';
 import RouteInspector from './RouteInspector';
 import SaveModal from '../../library/components/SaveModal';
 import LoadingSpinner from '../../common/components/LoadingSpinner';
@@ -26,7 +27,7 @@ interface LoadingStage {
 
 const ResultsPanel: React.FC = () => {
   const { results, isMatching, error } = useMatching();
-  const [selectedRoute, setSelectedRoute] = useState<RouteMatch | null>(null);
+  const { setSelectedRoute, selectedRoute } = useMatchingStore();
   const [routeToSave, setRouteToSave] = useState<RouteMatch | null>(null);
   const [page, setPage] = useState(1);
   const [loadingStages, setLoadingStages] = useState<LoadingStage[]>([]);
@@ -34,17 +35,15 @@ const ResultsPanel: React.FC = () => {
 
   useEffect(() => {
     if (isMatching) {
-      // Initialize loading stages
       const stages: LoadingStage[] = [
-        { id: 'upload', label: 'Uploading GPX file', completed: false },
-        { id: 'parse', label: 'Parsing route data', completed: false },
-        { id: 'analyze', label: 'Analyzing elevation profile', completed: false },
-        { id: 'search', label: 'Searching for similar routes', completed: false },
+        { id: 'upload', label: 'Processing GPX data', completed: false },
+        { id: 'parse', label: 'Analyzing route characteristics', completed: false },
+        { id: 'analyze', label: 'Calculating elevation profile', completed: false },
+        { id: 'search', label: 'Searching in selected area', completed: false },
         { id: 'calculate', label: 'Calculating match scores', completed: false },
       ];
       setLoadingStages(stages);
 
-      // Simulate stage progression
       const timers: NodeJS.Timeout[] = [];
       stages.forEach((stage, index) => {
         const timer = setTimeout(() => {
@@ -69,8 +68,8 @@ const ResultsPanel: React.FC = () => {
     setRouteToSave(route);
   };
 
-  const paginatedResults = results.slice((page - 1) * itemsPerPage, page * itemsPerPage);
-  const totalPages = Math.ceil(results.length / itemsPerPage);
+  const paginatedResults = results.filter(r => r.id !== 'input-route').slice((page - 1) * itemsPerPage, page * itemsPerPage);
+  const totalPages = Math.ceil(results.filter(r => r.id !== 'input-route').length / itemsPerPage);
 
   if (isMatching) {
     return (
@@ -120,19 +119,27 @@ const ResultsPanel: React.FC = () => {
     <div className="w-full h-full flex flex-col">
       <GlassPanel className="flex-1 p-6 overflow-y-auto">
         <h3 className="text-lg font-semibold mb-4">
-          Results {results.length > 0 && `(${results.length} routes found)`}
+          {results.length > 0 ? `Found ${results.filter(r => r.id !== 'input-route').length} matching routes` : 'Search Results'}
         </h3>
 
         {results.length === 0 ? (
           <p className="text-gray-500 text-center py-8">
-            No results yet. Set filters and draw a search area to find routes.
+            No results yet. Upload a GPX file and draw a search area to find similar routes.
+          </p>
+        ) : paginatedResults.length === 0 ? (
+          <p className="text-gray-500 text-center py-8">
+            No matching routes found in the selected area. Try expanding your search area or adjusting the flexibility settings.
           </p>
         ) : (
           <div className="space-y-4">
             {paginatedResults.map((route) => (
               <div
                 key={route.id}
-                className="p-4 rounded-lg bg-white/10 hover:bg-white/20 transition-colors cursor-pointer"
+                className={`p-4 rounded-lg transition-colors cursor-pointer ${
+                  selectedRoute?.id === route.id 
+                    ? 'bg-orange-500/20 border-2 border-orange-500' 
+                    : 'bg-white/10 hover:bg-white/20'
+                }`}
                 onClick={() => handleRouteSelect(route)}
               >
                 <div className="flex justify-between items-start mb-2">
@@ -141,9 +148,9 @@ const ResultsPanel: React.FC = () => {
                     {route.matchPercentage}% match
                   </span>
                 </div>
-                <div className="text-sm text-gray-600 space-y-1">
+                <div className="text-sm text-gray-600 dark:text-gray-400 space-y-1">
                   <p>Distance: {(route.distance / 1000).toFixed(1)} km</p>
-                  <p>Elevation Gain: {route.elevationGain} m</p>
+                  <p>Elevation Gain: {route.elevationGain.toFixed(0)} m</p>
                   <p>Curve Score: {route.curveScore.toFixed(2)}</p>
                 </div>
                 <div className="flex gap-2 mt-3">
@@ -154,7 +161,7 @@ const ResultsPanel: React.FC = () => {
                       handleRouteSelect(route);
                     }}
                   >
-                    View
+                    View Details
                   </Button>
                   <Button
                     size="small"

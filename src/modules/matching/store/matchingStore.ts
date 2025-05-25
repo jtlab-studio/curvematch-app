@@ -1,4 +1,4 @@
-﻿// src/modules/matching/store/matchingStore.ts
+// src/modules/matching/store/matchingStore.ts
 
 import { create } from 'zustand';
 import { immer } from 'zustand/middleware/immer';
@@ -6,8 +6,8 @@ import type { GPXAnalysis } from '../../../utils/gpxMinifier';
 
 interface MatchFilters {
   gpxFile: File | null;
-  minifiedGpxFile: File | null; // Cached minified version
-  gpxAnalysis: GPXAnalysis | null; // Analysis results
+  minifiedGpxFile: File | null;
+  gpxAnalysis: GPXAnalysis | null;
   distanceFlexibility: number;
   elevationFlexibility: number;
   safetyMode: string;
@@ -32,18 +32,27 @@ interface RouteMatch {
   elevationProfile: number[];
 }
 
+interface UploadedRoute {
+  geometry: any;
+  distance: number;
+  elevationGain: number;
+  elevationProfile: number[];
+}
+
 interface MatchingState {
   filters: MatchFilters;
   results: RouteMatch[];
   selectedRoute: RouteMatch | null;
   searchArea: Bounds | null;
   isProcessingGPX: boolean;
+  uploadedGPXRoute: UploadedRoute | null;
   setFilters: (filters: Partial<MatchFilters>) => void;
   setGPXData: (originalFile: File, minifiedFile: File, analysis: GPXAnalysis) => void;
   setResults: (results: RouteMatch[]) => void;
   setSelectedRoute: (route: RouteMatch | null) => void;
   setSearchArea: (bounds: Bounds | null) => void;
   setProcessingGPX: (processing: boolean) => void;
+  setUploadedGPXRoute: (route: UploadedRoute | null) => void;
   resetFilters: () => void;
 }
 
@@ -63,10 +72,15 @@ export const useMatchingStore = create<MatchingState>()(
     selectedRoute: null,
     searchArea: null,
     isProcessingGPX: false,
+    uploadedGPXRoute: null,
     
     setFilters: (updates) =>
       set((state) => {
         Object.assign(state.filters, updates);
+        // Clear uploaded route if GPX is removed
+        if (updates.gpxFile === null) {
+          state.uploadedGPXRoute = null;
+        }
       }),
       
     setGPXData: (originalFile, minifiedFile, analysis) =>
@@ -75,6 +89,17 @@ export const useMatchingStore = create<MatchingState>()(
         state.filters.minifiedGpxFile = minifiedFile;
         state.filters.gpxAnalysis = analysis;
         state.isProcessingGPX = false;
+        
+        // Set uploaded route for display on map
+        state.uploadedGPXRoute = {
+          geometry: {
+            type: 'LineString',
+            coordinates: [] // This would be populated from the GPX parsing
+          },
+          distance: analysis.distance,
+          elevationGain: analysis.elevationGain,
+          elevationProfile: [],
+        };
       }),
       
     setResults: (results) =>
@@ -97,6 +122,11 @@ export const useMatchingStore = create<MatchingState>()(
         state.isProcessingGPX = processing;
       }),
       
+    setUploadedGPXRoute: (route) =>
+      set((state) => {
+        state.uploadedGPXRoute = route;
+      }),
+      
     resetFilters: () =>
       set((state) => {
         state.filters = { ...defaultFilters };
@@ -104,6 +134,7 @@ export const useMatchingStore = create<MatchingState>()(
         state.results = [];
         state.selectedRoute = null;
         state.isProcessingGPX = false;
+        state.uploadedGPXRoute = null;
       }),
   }))
 );

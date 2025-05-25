@@ -14,7 +14,7 @@ const DrawRectangle: React.FC<DrawRectangleProps> = ({ onAreaDrawn, isEnabled })
   const [firstPoint, setFirstPoint] = useState<L.LatLng | null>(null);
   const [tempRectangle, setTempRectangle] = useState<L.Rectangle | null>(null);
   const [drawnRectangle, setDrawnRectangle] = useState<L.Rectangle | null>(null);
-  const maxArea = 200; // km²
+  const maxArea = 500; // km² - increased from 200
 
   useEffect(() => {
     if (!isEnabled) {
