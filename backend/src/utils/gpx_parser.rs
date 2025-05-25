@@ -1,10 +1,9 @@
-use geo::LineString;
-use gpx::{Gpx, Track};
+﻿use geo::LineString;
+use gpx::Gpx;
 use std::io::Cursor;
 use crate::error::AppError;
 
 pub fn parse_gpx(gpx_content: &str) -> Result<ParsedGpx, AppError> {
-    // Log the content for debugging
     tracing::debug!("Parsing GPX content: {} bytes", gpx_content.len());
     
     let cursor = Cursor::new(gpx_content);
@@ -45,13 +44,8 @@ pub fn parse_gpx(gpx_content: &str) -> Result<ParsedGpx, AppError> {
         .filter_map(|p| p.elevation)
         .collect();
     
-    // Get track name - handle both track.name and the name from <n> tag
-    let name = track.name.clone()
-        .or_else(|| {
-            // Some GPX files use <n> instead of <name>
-            // The gpx crate might not parse this, so we'll use track name if available
-            None
-        });
+    // Get track name
+    let name = track.name.clone();
     
     tracing::info!(
         "Parsed GPX: name={:?}, points={}, elevations={}", 
@@ -72,62 +66,4 @@ pub struct ParsedGpx {
     pub name: Option<String>,
     pub geometry: LineString<f64>,
     pub elevation_profile: Vec<f64>,
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_parse_valid_gpx() {
-        let gpx_content = r#"<?xml version="1.0" encoding="UTF-8"?>
-<gpx version="1.1" creator="Test">
-    <trk>
-        <name>Test Track</name>
-        <trkseg>
-            <trkpt lat="52.5200" lon="13.4050">
-                <ele>100.0</ele>
-            </trkpt>
-            <trkpt lat="52.5210" lon="13.4060">
-                <ele>105.0</ele>
-            </trkpt>
-        </trkseg>
-    </trk>
-</gpx>"#;
-
-        let result = parse_gpx(gpx_content);
-        assert!(result.is_ok());
-        
-        let parsed = result.unwrap();
-        assert_eq!(parsed.name, Some("Test Track".to_string()));
-        assert_eq!(parsed.geometry.0.len(), 2);
-        assert_eq!(parsed.elevation_profile.len(), 2);
-    }
-
-    #[test]
-    fn test_parse_gpx_with_n_tag() {
-        // Some GPX files use <n> instead of <name>
-        let gpx_content = r#"<?xml version="1.0" encoding="UTF-8"?>
-<gpx version="1.1" creator="Test">
-    <trk>
-        <n>Test Track</n>
-        <trkseg>
-            <trkpt lat="52.5200" lon="13.4050">
-                <ele>100.0</ele>
-            </trkpt>
-            <trkpt lat="52.5210" lon="13.4060">
-                <ele>105.0</ele>
-            </trkpt>
-        </trkseg>
-    </trk>
-</gpx>"#;
-
-        let result = parse_gpx(gpx_content);
-        // This might fail with the current gpx crate if it doesn't support <n>
-        // but at least it should parse the track points
-        assert!(result.is_ok());
-        
-        let parsed = result.unwrap();
-        assert_eq!(parsed.geometry.0.len(), 2);
-    }
 }

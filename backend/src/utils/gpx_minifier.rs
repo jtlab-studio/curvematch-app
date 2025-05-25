@@ -1,7 +1,6 @@
 ﻿// backend/src/utils/gpx_minifier.rs - Reduce GPX to essential data only
 
-use gpx::{Gpx, Track, TrackSegment, Waypoint};
-use geo::Point;
+use gpx::{Gpx, Track, TrackSegment, Waypoint, GpxPoint};
 use std::io::Cursor;
 use crate::error::AppError;
 
@@ -36,7 +35,7 @@ pub fn minify_gpx(gpx_content: &str) -> Result<String, AppError> {
             source: None,
             links: vec![],
             number: None,
-            r#type: None,
+            type_: None,
             segments: vec![],
         };
         
@@ -49,7 +48,8 @@ pub fn minify_gpx(gpx_content: &str) -> Result<String, AppError> {
             // Keep only essential waypoint data
             for point in &segment.points {
                 let minimal_point = Waypoint {
-                    point: Point::new(point.point().x(), point.point().y()),
+                    // Create a new GpxPoint from coordinates
+                    point: GpxPoint::new((point.point().x(), point.point().y())),
                     elevation: point.elevation, // Keep elevation
                     time: None, // Remove timestamp
                     name: None,
@@ -58,17 +58,18 @@ pub fn minify_gpx(gpx_content: &str) -> Result<String, AppError> {
                     source: None,
                     links: vec![],
                     symbol: None,
-                    r#type: None,
-                    // Remove all extensions and extra data
+                    type_: None,
+                    // Keep only essential fields
                     geoidheight: None,
                     fix: None,
                     sat: None,
                     hdop: None,
                     vdop: None,
                     pdop: None,
-                    age: None,
-                    dgps_id: None,
-                    extensions: Default::default(),
+                    dgps_age: None,
+                    dgpsid: None,
+                    // The gpx crate doesn't have extensions field on Waypoint
+                    speed: None,
                 };
                 minimal_segment.points.push(minimal_point);
             }

@@ -180,7 +180,7 @@ async fn match_routes(
                 "type": "LineString",
                 "coordinates": parsed_gpx.geometry.0.iter()
                     .take(10) // Just first 10 points for the mock
-                    .map(|coord| [coord.0, coord.1])
+                    .map(|coord| [coord.x, coord.y])
                     .collect::<Vec<_>>()
             }),
             elevation_profile: parsed_gpx.elevation_profile.iter()
