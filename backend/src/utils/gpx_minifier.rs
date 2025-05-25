@@ -1,4 +1,4 @@
-// backend/src/utils/gpx_minifier.rs - Reduce GPX to essential data only
+// backend/src/utils/gpx_minifier.rs - FIXED version that actually reduces size
 
 use gpx::{Gpx, Track, TrackSegment, Waypoint};
 use geo::Point;
@@ -20,75 +20,57 @@ pub fn minify_gpx(gpx_content: &str) -> Result<String, AppError> {
     // Create a new minimal GPX
     let mut minimal_gpx = Gpx {
         version: original_gpx.version,
-        creator: Some("CurveMatch Minifier".to_string()),
-        metadata: None, // Remove metadata to save space
-        waypoints: vec![], // No waypoints needed
+        creator: Some("CurveMatch".to_string()),
+        metadata: None, // Remove all metadata
+        waypoints: vec![], // No waypoints
         tracks: vec![],
-        routes: vec![], // No routes needed
+        routes: vec![], // No routes
     };
     
     // Process each track
     for (track_idx, track) in original_gpx.tracks.iter().enumerate() {
-        let mut minimal_track = Track {
-            name: track.name.clone().or_else(|| Some(format!("Track {}", track_idx + 1))),
-            comment: None,
-            description: None,
-            source: None,
-            links: vec![],
-            number: None,
-            type_: None,
-            segments: vec![],
-        };
+        let mut minimal_track = Track::new();
         
-        // Process each segment
+        // Only keep the name
+        if let Some(ref name) = track.name {
+            minimal_track.name = Some(name.clone());
+        } else {
+            minimal_track.name = Some(format!("Track {}", track_idx + 1));
+        }
+        
+        // Process segments
         for segment in &track.segments {
-            let mut minimal_segment = TrackSegment {
-                points: vec![],
-            };
+            let mut minimal_segment = TrackSegment::new();
             
             // Keep only essential waypoint data
             for point in &segment.points {
-                // Get the coordinates from the original point
                 let coord = point.point();
-                
-                // Create a new geo Point with the coordinates
                 let geo_point = Point::new(coord.x(), coord.y());
-                
-                // Create a minimal waypoint with the geo Point
                 let mut minimal_point = Waypoint::new(geo_point);
                 
-                // Keep elevation if available
+                // Only keep elevation if available
                 minimal_point.elevation = point.elevation;
-                // All other fields remain None/default
                 
                 minimal_segment.points.push(minimal_point);
             }
             
-            // Only add segment if it has points
             if !minimal_segment.points.is_empty() {
                 minimal_track.segments.push(minimal_segment);
             }
         }
         
-        // Only add track if it has segments
         if !minimal_track.segments.is_empty() {
             minimal_gpx.tracks.push(minimal_track);
         }
     }
     
-    // Convert back to string
+    // Write minimal GPX
     let mut output = Vec::new();
     gpx::write(&minimal_gpx, &mut output)
-        .map_err(|e| {
-            tracing::error!("Failed to write minimal GPX: {}", e);
-            AppError::FileError(format!("Failed to write minimal GPX: {}", e))
-        })?;
+        .map_err(|e| AppError::FileError(format!("Failed to write minimal GPX: {}", e)))?;
     
     let minimal_content = String::from_utf8(output)
-        .map_err(|e| {
-            tracing::error!("Failed to convert minimal GPX to string: {}", e);
-            AppError::FileError(format!("Failed to convert minimal GPX: {}", e))
-        })?;
+        .map_err(|e| AppError::FileError(format!("Failed to convert minimal GPX: {}", e)))?;
     
     let original_points: usize = original_gpx.tracks.iter()
         .flat_map(|t| &t.segments)
@@ -107,10 +89,6 @@ pub fn minify_gpx(gpx_content: &str) -> Result<String, AppError> {
         (1.0 - minimal_content.len() as f64 / gpx_content.len() as f64) * 100.0,
         minimal_points
     );
-    
-    if minimal_points != original_points {
-        tracing::warn!("Point count mismatch: {} original vs {} minimal", original_points, minimal_points);
-    }
     
     Ok(minimal_content)
 }

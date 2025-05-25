@@ -6,11 +6,11 @@ use axum::{
     Json, Router,
 };
 use sqlx::SqlitePool;
-use serde::{Deserialize, Serialize};
+// use serde::{Deserialize, Serialize}; // Not needed
 use crate::{
     error::AppError,
     db::queries::routes::{save_route as db_save_route, get_route_by_id},
-    models::request::{SaveRouteRequest, SearchArea},
+    models::request::SaveRouteRequest,
 };
 
 pub fn routes() -> Router<SqlitePool> {

@@ -16,7 +16,7 @@ mod models;
 mod utils;
 
 use crate::config::Config;
-use crate::db::create_pool;
+use crate::db::pool::create_pool;
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {

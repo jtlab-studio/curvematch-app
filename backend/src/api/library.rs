@@ -5,7 +5,7 @@ use axum::{
     routing::{get, delete, patch},
     Json, Router,
 };
-use serde::{Serialize, Deserialize};
+use serde::Serialize;
 use sqlx::SqlitePool;
 use crate::{
     db::queries::routes::{get_user_routes, get_route_by_id, delete_route_by_id, update_route_name},

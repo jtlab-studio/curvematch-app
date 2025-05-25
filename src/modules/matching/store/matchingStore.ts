@@ -1,5 +1,3 @@
-// src/modules/matching/store/matchingStore.ts
-
 import { create } from 'zustand';
 import { immer } from 'zustand/middleware/immer';
 import type { GPXAnalysis } from '../../../utils/gpxMinifier';
@@ -10,6 +8,9 @@ interface MatchFilters {
   gpxAnalysis: GPXAnalysis | null;
   distanceFlexibility: number;
   elevationFlexibility: number;
+  shapeImportance: number;
+  turnsImportance: number;
+  granularityMeters: number;
   safetyMode: string;
 }
 
@@ -60,8 +61,11 @@ const defaultFilters: MatchFilters = {
   gpxFile: null,
   minifiedGpxFile: null,
   gpxAnalysis: null,
-  distanceFlexibility: 10,
-  elevationFlexibility: 10,
+  distanceFlexibility: 20,
+  elevationFlexibility: 20,
+  shapeImportance: 0,
+  turnsImportance: 0,
+  granularityMeters: 100,
   safetyMode: 'Moderate',
 };
 
@@ -77,9 +81,9 @@ export const useMatchingStore = create<MatchingState>()(
     setFilters: (updates) =>
       set((state) => {
         Object.assign(state.filters, updates);
-        // Clear uploaded route if GPX is removed
         if (updates.gpxFile === null) {
           state.uploadedGPXRoute = null;
+          state.searchArea = null;
         }
       }),
       
@@ -89,17 +93,6 @@ export const useMatchingStore = create<MatchingState>()(
         state.filters.minifiedGpxFile = minifiedFile;
         state.filters.gpxAnalysis = analysis;
         state.isProcessingGPX = false;
-        
-        // Set uploaded route for display on map
-        state.uploadedGPXRoute = {
-          geometry: {
-            type: 'LineString',
-            coordinates: [] // This would be populated from the GPX parsing
-          },
-          distance: analysis.distance,
-          elevationGain: analysis.elevationGain,
-          elevationProfile: [],
-        };
       }),
       
     setResults: (results) =>

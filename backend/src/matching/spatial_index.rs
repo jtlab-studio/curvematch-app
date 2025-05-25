@@ -9,12 +9,9 @@ pub struct SpatialIndex {
 
 impl SpatialIndex {
     pub fn new() -> Self {
-        // In production, this would be initialized with routes from database
-        // For now, use sample data
-        let routes = Self::load_sample_routes();
-        
+        // Empty index - no mock data
         Self {
-            rtree: RTree::bulk_load(routes),
+            rtree: RTree::new(),
         }
     }
     
@@ -64,56 +61,11 @@ impl SpatialIndex {
             }
         }
         
-        // If no routes in database, use sample data
-        if routes.is_empty() {
-            routes = Self::load_sample_routes();
-        }
+        tracing::info!("Loaded {} routes from database", routes.len());
         
         Ok(Self {
             rtree: RTree::bulk_load(routes),
         })
-    }
-    
-    fn load_sample_routes() -> Vec<RouteEntry> {
-        vec![
-            RouteEntry {
-                id: "1".to_string(),
-                name: "Berlin Loop".to_string(),
-                distance: 5000.0,
-                elevation_gain: 50.0,
-                geometry: LineString::from(vec![
-                    (13.4050, 52.5200), (13.4150, 52.5250), (13.4200, 52.5300),
-                    (13.4150, 52.5350), (13.4050, 52.5300), (13.4050, 52.5200)
-                ]),
-                elevation_profile: vec![100.0, 105.0, 110.0, 108.0, 105.0, 100.0],
-                bbox: AABB::from_corners([13.4050, 52.5200], [13.4200, 52.5350]),
-            },
-            RouteEntry {
-                id: "2".to_string(),
-                name: "Tiergarten Trail".to_string(),
-                distance: 8000.0,
-                elevation_gain: 25.0,
-                geometry: LineString::from(vec![
-                    (13.3500, 52.5100), (13.3600, 52.5150), (13.3700, 52.5200),
-                    (13.3650, 52.5250), (13.3550, 52.5200), (13.3500, 52.5100)
-                ]),
-                elevation_profile: vec![95.0, 98.0, 100.0, 99.0, 97.0, 95.0],
-                bbox: AABB::from_corners([13.3500, 52.5100], [13.3700, 52.5250]),
-            },
-            RouteEntry {
-                id: "3".to_string(),
-                name: "Grunewald Forest Path".to_string(),
-                distance: 12000.0,
-                elevation_gain: 75.0,
-                geometry: LineString::from(vec![
-                    (13.2500, 52.4900), (13.2600, 52.4950), (13.2700, 52.5000),
-                    (13.2800, 52.5050), (13.2750, 52.5100), (13.2650, 52.5050),
-                    (13.2550, 52.5000), (13.2500, 52.4900)
-                ]),
-                elevation_profile: vec![110.0, 115.0, 120.0, 125.0, 122.0, 118.0, 114.0, 110.0],
-                bbox: AABB::from_corners([13.2500, 52.4900], [13.2800, 52.5100]),
-            },
-        ]
     }
     
     pub fn query_bounds(&self, bounds: (f64, f64, f64, f64)) -> Vec<RouteEntry> {

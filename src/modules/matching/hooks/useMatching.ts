@@ -1,4 +1,4 @@
-﻿// src/modules/matching/hooks/useMatching.ts
+// src/modules/matching/hooks/useMatching.ts
 
 import { useCallback, useState } from 'react';
 import { useMatchingStore } from '../store/matchingStore';
@@ -20,13 +20,13 @@ export const useMatching = () => {
     setFilters,
     setResults,
     setSelectedRoute,
+    setUploadedGPXRoute,
   } = useMatchingStore();
 
   const [isMatching, setIsMatching] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const performMatch = useCallback(async () => {
-    // Use the minified GPX file instead of the original
     if (!filters.minifiedGpxFile || !searchArea) {
       console.error('Missing required data:', {
         hasMinifiedGpx: !!filters.minifiedGpxFile,
@@ -50,7 +50,7 @@ export const useMatching = () => {
       });
 
       const response = await matchingApi.matchRoutes({
-        gpxFile: filters.minifiedGpxFile, // Use minified file
+        gpxFile: filters.minifiedGpxFile,
         distanceFlexibility: filters.distanceFlexibility,
         elevationFlexibility: filters.elevationFlexibility,
         safetyMode: filters.safetyMode,
@@ -58,6 +58,17 @@ export const useMatching = () => {
       });
 
       console.log('Match response:', response);
+      
+      // Set the input route for display on map
+      if (response.inputRoute) {
+        setUploadedGPXRoute({
+          geometry: response.inputRoute.geometry,
+          distance: response.inputRoute.distance,
+          elevationGain: response.inputRoute.elevationGain,
+          elevationProfile: response.inputRoute.elevationProfile || [],
+        });
+      }
+      
       setResults(response.matches);
     } catch (error) {
       console.error('Match failed:', error);
@@ -67,7 +78,7 @@ export const useMatching = () => {
     } finally {
       setIsMatching(false);
     }
-  }, [filters, searchArea, setResults]);
+  }, [filters, searchArea, setResults, setUploadedGPXRoute]);
 
   const updateFilters = useCallback((updates: Partial<MatchFilters>) => {
     setFilters(updates);

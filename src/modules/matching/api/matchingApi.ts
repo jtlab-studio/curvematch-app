@@ -25,8 +25,17 @@ export interface RouteMatch {
   elevationProfile: number[];
 }
 
+export interface InputRouteInfo {
+  name: string;
+  distance: number;
+  elevationGain: number;
+  geometry: any;
+  elevationProfile: number[];
+}
+
 export interface MatchResponse {
   matches: RouteMatch[];
+  inputRoute: InputRouteInfo;
 }
 
 const matchEndpoint = '/api/match';
@@ -42,14 +51,8 @@ export const matchRoutes = async (data: MatchRequest): Promise<MatchResponse> =>
   console.log('Sending match request with form data');
   
   try {
-    // Don't set Content-Type header - let axios set it automatically with boundary
     const response = await apiClient.post(matchEndpoint, formData, {
-      headers: {
-        // Remove explicit Content-Type to let axios handle multipart boundary
-      },
-      // Add timeout to prevent hanging
       timeout: 30000,
-      // Ensure axios knows this is form data
       maxContentLength: Infinity,
       maxBodyLength: Infinity,
     });
@@ -58,7 +61,6 @@ export const matchRoutes = async (data: MatchRequest): Promise<MatchResponse> =>
   } catch (error: any) {
     console.error('Match API error:', error);
     
-    // More detailed error handling
     if (error.code === 'ECONNABORTED') {
       throw new Error('Request timed out. Please try again.');
     }
